@@ -1,0 +1,40 @@
+
+\chapter*{Preface}
+\label{chap:preface}
+%调试器，作为一个系统软件，一点不比编译器或者操作系统简单。在开发调试器的过程中，笔者感到，关于调试器的文档相当有限，而且中国工程师在社区中的认可度不高，所以笔者把他对调试器极其有限的理解写下来，总结那段时间的收获并且希望对中国的系统软件工程师有些帮助。
+
+%笔者从2003年底开始接触\emph{GNU/Linux}，2005年开始开源社区活动，开始喜欢开源社区的方式和系统软件，进而从\emph{Linux}内核转入到
+%调试器和编译器有关的系统软件的学习和研究。当年的毕业设计题目就是和调试器有关，后来有幸在一家公司的\emph{Linux}部门实习并工作，直到
+%2006年11月，接触了更多的系统软件的知识。在这期间，笔者参于了一个新调试器的开发工作，同时对\emph{GDB}做了分析和比较。
+
+I joined \emph{GNU/Linux} at the end of 2003, and started some activities in open source
+community on 2005.  Then, I fell
+in love with systematic software, so that I switch the area of learning and studying from \emph{Linux} kernel to debugger
+and compiler.  I completed my thesis relative to debugger from 2005 to 2006, and have been an intern and a regular later in 
+one \emph{Linux} team in one company until Dec. 2006.  During this period, I get much more knowledge about system, and
+joined a project about a new debugger \href{http://sourceware.org/frysk/}{frysk} development.  I gradually realized that, debugger, as a systematic software, is
+as complicated as operating system or compiler, and there are some reasons for this,
+
+\begin{itemize}
+\item Complicated System Runtime features\\
+One of the tasks of debugger is to control or monitor the execution of program, and collect the dynamic information of program.
+For example, when a program open a shared library dynamically, debugger should be aware this event, and do some operations 
+correspondingly(i.e. cache the symbol table of the shared library).
+%调试器主要目标是控制程序的运行，所以需要控制程序运行状态和收集程序状态变化信息。比如，程序在运行中动态加载某个共享库，调试器必须有办法获得
+%这个事件，并且做相应的处理（缓存共享库的符号表）。
+\item Complicated Multi-platform Support \\
+Design and implementation of a debugger is highly coupled with processor, operating system, and system libraries, so a debugger
+that support multi-platform must be complicated.
+%调试器的设计和实现与处理器、操作系统和系统库密切相关，所以，一个支持多种操作系统和处理器组合的调试器一定很复杂，也让本来很简单的一个实现方式
+%变的很复杂。
+\end{itemize}
+
+%由于上述复杂性，使得理解一个调试器的工作原理十分困难。笔者把调试器分解成了若干部分，每一部分都用一个简单的小程序实现。这些小程序可能编码并不科学，
+%也不通用，但是足以说明白相应的原理。
+
+Debugger is complicated so that it is hard to understand how debugger works.  I decompose debugger into several components, and
+write some small program for these components.  These small programs themselves are \emph{not} 100-percent right from a programmer's
+perspective and could noly work on Linux/i386 platform, but they are easy to show the mechanism of debugger.
+%书中的任何问题，欢迎指正。笔者的邮箱是 \href{qiyaoltc@gmail.com}{qiyaoltc@gmail.com}
+
+Any comments on literature errors, and systematic software knowledge are welcome.  Contact me via \href{<Yao Qi>}{qiyaoltc@gmail.com}

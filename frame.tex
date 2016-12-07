@@ -1,0 +1,78 @@
+
+\chapter{Frame}
+\label{chap:fram}
+Frame is a very basic concept in computer science, especially in compiler
+and operating system.  In short, frame is a piece of memory on stack, which
+includes various information on runtime method call information, and stores
+some calling states.  In toolchain area, compiler and linker generates code for
+frame, while debugger peek code and stack, to understand frames.  Ideally, it
+is a quite straight forward, however, unfortunately, in practice, it is a very complicated part,
+if not most, in debugger design and implementation, because
+\begin{enumerate}
+  \item Supporting multiple architectures make it complicated,
+  \item Supporting multiple operating systems make it complicated,
+  \item Supporting multiple calling conventions or ABI make it complicated,
+  \item Handling aggressively-optimized program without debug information make it complicated,
+  \item Handling some corner cases make it complicated
+\end{enumerate}
+
+\section{Frame Scheme Handler}
+Taking factors above into account, given a program, there might be multiple \textit{schemes}
+of frame co-exists in a single program, and given a certain frame, its scheme is of these
+known schemes, but debugger has to analyze which scheme this frame has.  As a debugger writer,
+the first step is that we should handle each of these different frame \textit{schemes}, and
+try to apply each handler to a given frame to see which one is applicable.
+
+Usually, it is expensive to try to apply each frame handler to a certain frame, to see whether
+this frame handler is \textbf{applicable} to this frame.  It is more efficient
+if apply some simple and efficient checks to a certain frame, to see whether this frame handler
+is \textbf{not applicable} to this frame.  We can call these simple and efficient checks before
+frame handler as \textit{filter}.
+
+%% \includegraphics{frame/figure.1}
+
+\section{Frame Content Handler}
+Once \textbf{Frame Scheme Handler} is determined, given a frame and its corresponding frame scheme
+handler, the next step is to extract necessary or needed information from it.  In general, these
+information are needed to know,
+\begin{itemize}
+  \item the base address of this frame,
+  \item the area for local variables,
+  \item the area for arguments passing,
+\end{itemize}
+
+Usually, these information can be got from \textit{Frame Content Handler}.  In short, \textit{Frame Content Handler}
+is to extract information from a give frame according to some conventions, such as ABI.
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=5in]{frame/unwind_frame.eps}
+  \caption{Recursive frame unwinding}
+  \label{fig:frame:unwind}
+\end{figure}
+
+\textit{Frame Scheme Handler} and \textit{Frame Content Handler} are interleaved recursively,
+from these knowledge on different areas on a frame, debugger can extract necessary or
+needed information of previous frame of this current frame.  This process is called \textit{unwind},
+shown in Figure \ref{fig:frame:unwind}.  \textit{All Frame Scheme Handlers} and \textit{ABI} are
+known to debugger ahead of time of debugging.  \texttt{frame N} is input and \texttt{frame N+1} is
+output.
+
+\section{Presentation of frame data}
+
+\section{Implementation in GDB}
+The implementation in GDB is quite similar to what we described in previous sections.  Function pointers
+\texttt{sniffer} chained in \texttt{frame\_base\_table\_entry} is designed as \textit{Frame Scheme Handler},
+while \texttt{frame\_base} returned by \texttt{sniffer} is designed as \textit{Frame Content Handler}.
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=5.5in]{frame/gdb_frame.eps}
+  \caption{GDB frame}
+  \label{fig:frame:gdb}
+\end{figure}
+
+The workflow of identifying \texttt{frame\_base} is, a frame presentation, \texttt{frame\_info}, is an input,
+GDB will go through the linked list of \texttt{frame\_base\_table\_entry}, and call \texttt{sniffer} with
+parameter of \texttt{frame\_info}.  If \texttt{sniffer} returns a valid \texttt{frame\_base}, terminate loop,
+and use this \texttt{frame\_base} to analyze this frame.

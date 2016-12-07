@@ -1,0 +1,180 @@
+
+\chapter{Thread}
+\label{chap:thread}
+
+\section{Multithread Debugging with libthread\_db}
+It is harder and harder to to all the debugging work by debugger alone, especially for the
+multithreaed programs.  Some thread library vendors provide an external debugging interface
+to debugger, and debugger could utilize this interface to collect the information about all
+the threads.
+
+\subsection{Thread Debugging Interface}
+On the POSIX system, \texttt{libthread\_db.so} is provided, and the general idea of this
+implementation is that, \texttt{libthread\_db.so} provides the interface to access threads,
+while debugger provides the interface to access its internal information, such as symbol tables,
+method to read or write registers.  In one word, they two (\texttt{libthread\_db.so} and debugger
+) export their internal state to each other.  They implement this idea via dynamically link shared
+object.
+
+\section{From libthread\_db to debugger}
+
+How \texttt{libthread\_db.so} make use of debugger's functionality.
+
+\subsection{How to Utilize This Interface}
+In \texttt{libthread\_db.so}, the interface for debugger to export its internal state is undefined
+in \texttt{libthread\_db.so}, and this interface should be implemented by the debugger or other utilities,
+which would like to use \texttt{libthread\_db.so}.  On \emph{Linux},
+
+\begin{verbatim}
+[qiyao@GreenOnly:]$ ldd -r /lib/libthread_db.so.1
+undefined symbol: ps_pglobal_lookup     (/lib/libthread_db.so.1)
+undefined symbol: ps_pdwrite    (/lib/libthread_db.so.1)
+undefined symbol: ps_lsetfpregs (/lib/libthread_db.so.1)
+undefined symbol: ps_getpid     (/lib/libthread_db.so.1)
+undefined symbol: ps_lsetregs   (/lib/libthread_db.so.1)
+undefined symbol: ps_pdread     (/lib/libthread_db.so.1)
+undefined symbol: ps_lgetfpregs (/lib/libthread_db.so.1)
+undefined symbol: ps_lgetregs   (/lib/libthread_db.so.1)
+        linux-gate.so.1 =>  (0x00f9e000)
+        libc.so.6 => /lib/libc.so.6 (0x004b8000)
+        /lib/ld-linux.so.2 (0x0049b000)
+\end{verbatim}
+
+we could find that there are eight functions undefined in \texttt{libthread\_db.so}, and \emph{GDB} defines these
+functions in \texttt{gdb/proc-service.c}.  Otherwise, it would fail to link \texttt{libthead\_db.so} at link-time
+(via \emph{-lthread\_db} in command line option to linkers) or run-time(via \emph{dlopen}).
+
+When dealing with \texttt{libthread\_db.so}, there are two important data structures, \emph{ps\_prochandle} and 
+\emph{td\_thragent\_t}.
+
+Usually, \emph{ps\_prochandle} is also defined at debugger side, instead of \texttt{libthread\_do.so} \footnote{I don't know why.  Need some investigation here}.
+
+
+
+Let us look how \emph{GDB} use \emph{ps\_pglobal\_lookup}, here is a snip for debugging \emph{GDB} with \emph{GDB}.
+\begin{verbatim}
+Breakpoint 3, ps_pglobal_lookup (ph=0x82c1580, obj=0x114324 "libpthread.so.0", name=0x114431 "nptl_version", sym_addr=0xbf908378) at ../../src/gdb/proc-service.c:180
+180       ms = lookup_minimal_symbol (name, NULL, NULL);
+\end{verbatim}
+
+We could read the \texttt{proc-service.c},
+\begin{verbatim}
+169 /* Search for the symbol named NAME within the object named OBJ within
+170    the target process PH.  If the symbol is found the address of the
+171    symbol is stored in SYM_ADDR.  */
+172
+173 ps_err_e
+174 ps_pglobal_lookup (gdb_ps_prochandle_t ph, const char *obj,
+175                    const char *name, paddr_t *sym_addr)
+176 {
+177   struct minimal_symbol *ms;
+178
+179   /* FIXME: kettenis/2000-09-03: What should we do with OBJ?  */
+180   ms = lookup_minimal_symbol (name, NULL, NULL);
+181   if (ms == NULL)
+182     return PS_NOSYM;
+183
+184   *sym_addr = SYMBOL_VALUE_ADDRESS (ms);
+185   return PS_OK;
+186 }
+\end{verbatim}
+
+From this piece of code, we could find that, if we want to write a tool to use the functionality
+from \texttt{libthread\_db.so}, we should implement the all the stuff about symbol.
+
+It is relatively easy to implement \emph{lookup\_minimal\_symbol}, of course, ignore the efficiency
+here.  In ELF specification, we could know that, there is a section named \texttt{.symtab} or \texttt{.dynsym},
+and the type of this section is \texttt{SYMTAB} or \texttt{DYNSYM} respecitvely.  User could check these
+information via \texttt{readelf -S}
+
+\begin{verbatim}
+[qiyao@GreenOnly:~/SourceCode/NGSTAT]$ readelf -S thread-analysis-tool
+There are 37 section headers, starting at offset 0x20ff4:
+
+Section Headers:
+  [Nr] Name              Type            Addr     Off    Size   ES Flg Lk Inf Al
+......
+  [ 4] .dynsym           DYNSYM          08048204 000204 0001c0 10   A  5   1  4
+.....
+  [35] .symtab           SYMTAB          00000000 0215bc 0007d0 10     36  71  4
+\end{verbatim}
+
+
+These information about symbols is well-structured and fixed in length, and they could be easily parsed.
+
+\subsection{Access Target Memory}
+
+The operating system and system library only provide a simple interface to access the state of the debuggee,
+and debugger write should wrap this interface, and enrich it.  When dealing with multithreaded program,
+debugger writer should be careful.  Since all the libraries in \emph{Linux} are loaded in a lazy mode,
+we must make sure that the thread library has been loaded by \emph{loader, ld-2.4.so} when we want to access
+the library.
+
+One lesson I learned is that, I want to  get the address of one symbol in thread library.(\emph{nptl\_version}
+in \emph{ld-2.4.so}), and try to fetch the content directly.  After nearly one day debugging, I realize that
+the \emph{libpthread} has not been loaded by loader.  That is to say, the memory space of \emph{libpthread} could
+only be accessed when loader loads it into the process's space.  If the program reference the symbols in \emph{libpthread}
+at first, debugger could access the space of \emph{libpthread}
+
+\subsection{Read and Write Registers}
+After implement \emph{ps\_get\_thread\_area} in host, the debugger could do some work at the first several steps, with the help of
+\emph{ps\_pglobal\_lookup}, \emph{ps\_pdread}, and \emph{ps\_pdwrite}.  Now the debugger could work until operations to read and
+write registers are needed.  Since we are dealing with register read or write operations in multithreaed programming enviroment,
+so these operations are a little different with that in common conditoins\footnote{I am not sure what is the difference.}.
+
+In \emph{GDB}, \emph{ps\_lgetregs} is written like this,
+\begin{verbatim}
+/* Get the general registers of LWP LWPID within the target process PH
+   and store them in GREGSET.  */
+
+ps_err_e
+ps_lgetregs (gdb_ps_prochandle_t ph, lwpid_t lwpid, prgregset_t gregset)
+{
+  struct cleanup *old_chain = save_inferior_ptid ();
+
+  inferior_ptid = BUILD_LWP (lwpid, ph->pid);
+
+  target_fetch_registers (-1);
+  fill_gregset ((gdb_gregset_t *) gregset, -1);
+
+  do_cleanups (old_chain);
+  return PS_OK;
+}
+\end{verbatim}
+In \texttt{target.h}, \emph{target\_fetch\_registers} is a macro like this,
+\begin{verbatim}
+#define	target_fetch_registers(regno)	\
+     (*current_target.to_fetch_registers) (regno)
+\end{verbatim}
+
+\emph{GDB} will switch \emph{current\_target} to a \textbf{thread specific target} when it begins
+to deal with thread, and \texttt{linux-thread-db.c} defines this \textbf{target}.
+
+Set a breakpoint on \emph{thread\_db\_fetch\_registers}, and have a look how it works.
+\begin{verbatim}
+(top-gdb) bt
+#0  ps_lgetregs (ph=0x82c1740, lwpid=7475, gregset=0xbfd07bb0) at ../../src/gdb/proc-service.c:252
+#1  0x00111731 in td_ta_map_lwp2thr () from /lib/libthread_db.so.1
+#2  0x0011182d in iterate_thread_list () from /lib/libthread_db.so.1
+#3  0x00111a85 in td_ta_thr_iter () from /lib/libthread_db.so.1
+#4  0x080961d5 in thread_db_find_new_threads () at ../../src/gdb/linux-thread-db.c:1190
+\end{verbatim}
+
+In \emph{GDB}, \emph{inferior\_ptid} is a global variable that identify the current thread that monitored
+by \emph{GDB}, and it is hard to know which part or component of \emph{GDB}(only about Linux/i386) modify this global variable\footnote{
+I try to set watchpoint on \emph{inferior\_ptid} to have a look who modify it, but failed.}.
+
+It seems that I underestimate the complexity of \emph{inferior\_ptid} in \emph{GDB} source tree.  According
+to the list of source files that have \textbf{write operation} on it, I find that it is a global variable
+that closely coupled with the current structure of \emph{GDB}.
+
+\section{From debugger to libthread\_db}
+
+How debugger make use of \texttt{libthread\_db.so}'s functionality.
+\texttt{libthread\_db.so} provides some interfaces for debugger to call to get some internal
+events of thread library.  Usually, debugger uses these APIs via \texttt{dlsym}.
+
+\section{attach thread}
+In gdb, it seems that "attach a thread" and "attach process" are different.  My understanding is, attach operation in ptrace is
+"attach process", but I do not what is "attach a thread", since I am still not clear about the thread model in glibc.
+

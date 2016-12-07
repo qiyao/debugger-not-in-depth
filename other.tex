@@ -1,0 +1,71 @@
+\chapter{Other}
+This chapter is about some sections that I don't know where should put them.
+
+\section{inferior call}
+
+\subsection {什么是inferiro call}
+在解释\textit{inferior call}的实现原理之前，我们先解释一下\textit{inferior call}是什么。
+\textit{inferior call} 可以被简单地理解为“调试器在当前的堆栈上，主动调用被调试程序的函数，并且正确的得到
+函数的返回值（这一句好像有点多余）”。\textit{inferior call}理解起来，远比我们想象的简单，这个功能在我们的
+调试过程经常会被用到。比如有这样一段代码片段，
+
+\lstinputlisting[language=C,caption={infcall.c},captionpos={b},label={listing:other:infcall},frame=trbl]{other/infcall.c}
+
+假设现在程序执行到\texttt{foo}中，即将调用\texttt{bar}，我们想检查给定一个输入，函数的\texttt{bar}的返回值是否正确。通常这个
+时候我们想在GDB这里调用一下目标代码中的函数，
+\begin{verbatim}
+(gdb) p bar (5)
+$1 = 4
+\end{verbatim} 
+
+其实\texttt{bar (5)}是在目标端运行的，这就是一个\textit{inferior call}。
+
+在有些程序中，为了方便调试，开发人员会开发一些调试函数，留在程序中。这样在调试阶段，就可以利用\textit{inferior call}这个功能，把一些程序的内部状态给打印出来。比如在调试GCC rtl的时候，我们经常在GDB中用 \texttt{p print\_rtx (rtx)}，来打印\texttt{rtx}
+的内容。这就是一个\textit{inferior call}。
+
+\subsection {inferiro call的原理}
+在知道了\textit{inferior call}到底是什么的时候，我们来仔细想一下，第一，函数\texttt{print\_rtx (rtx)}是在被调试程序那里执行的，
+而不是在GDB这里；第二，参数\textit{rtx}是GDB传给被调试程序的函数；第三，GDB能够正确得到\texttt{print\_rtx (rtx)}这个函数
+的返回值；最后，被调试程序在执行完成\texttt{print\_rtx (rtx)}后，仍然停在原来的位置，程序的状态没有任何变化。上边这几点，就是
+调试器为了实现\textit{inferior call}所需要做到的，或者，需要保证的。
+
+下来我们想想，调试器应该怎样保证上边四条，
+\begin{enumerate}
+  \item 第一，函数是在被调试程序那里实行的。这个容易实现，调试器需要找到函数的入口地址，把寄存器\texttt{pc}设置为函数的入口地址，
+    然后用\texttt{ptrace}让被调试程序继续执行（\texttt{PTRACE\_CONT}）就可以了。
+  \item 第二，调试器传递参数给调用的函数。这个相对麻烦一些，因为调试器需要知道当前被调试程序所在系统的函数调用规则（function call
+convention），也就是规定，每一个函数的参数，应该如何传递给被调用函数。这个也是系统ABI的一部分。简单点说，如果函数有四个参数，这个四
+个参数在函数调用的时候，应该在什么位置，是在寄存器里边还是在堆栈上？调试器在知道这些规范以后，必须按照规范把被调用函数需要的参数，
+放在规定的地方。
+  \item 第三, 调试器需要得到函数调用的返回值。函数调用的返回值所在的位置同样规范在系统的ABI中。函数的返回值是在寄存器里边，还是堆栈上？
+调试器根据这个规范，从规定的位置，得到函数的返回值。
+  \item 第四，调试器需要函数调用完成后，程序依然停在之前的位置，没有任何变化。被调用的函数是不知道它被调用是一般的正常调用，还是调试器
+用\textit{inferior call}。所以，调试器在程序返回地址上，做了一些手脚。一般来说，程序的返回地址应该是调用这个函数的指令的下一条指令。
+在\textit{inferior call}，调试器会把函数调用的返回地址设置为一个特殊的地址，并且在这个地址上设置一个断点。这样，当程序返回的时候，调试器
+就能够保证程序执行完成后，程序就停下来。
+\end{enumerate}
+
+这样看来，只要能够对系统的ABI有个全面的了解，实现\textit{inferior call}应该没有什么困难。
+
+\subsection {inferiro call在GDB中的实现}
+下来我们看看GDB里边，是怎么实现
+\textit{inferior call}的，
+\begin{table}
+  \begin{tabular}{|l|l|l|} \hline
+    GDB hook&输入&作用\\ \hline
+    \tiny\textbf{arch}\texttt{\_push\_dummy\_call}&\tiny type parameter and return.&\tiny 根据ABI把参数放到应该放的地方\\&\tiny param value&\\ \hline
+
+    \tiny\textbf{arch}\texttt{\_return\_value}&\tiny 返回值类型&\tiny 根据ABI从正确位置取得返回值\\ \hline
+
+    \tiny\textbf{arch}\texttt{\_frame\_align}&&\tiny frame alignment\\ \hline
+
+    \tiny\textbf{arch}\texttt{\_value\_to\_register}&& \tiny 寄存器和\texttt{Value}之间的转换\\
+    \tiny\textbf{arch}\texttt{\_register\_to\_value}&&\\ \hline
+    \tiny\textbf{arch}\texttt{\_push\_dummy\_id} &&\tiny 建立一个dummy \texttt{frame id}\\ \hline
+  \end{tabular}
+\end{table}
+
+\textit{inferior call}在GDB中的实现，相对模块化，没有与其他的部分有过多的联系，但是我们可以看到在GDB的实现中，引入了一个\textit{dummy frame}
+这个概念。这个概念和GDB的frame模块有关系，和\textit{inferior call}功能没有实质联系。\textit{dummy frame}只是为了考虑当目标程序进行inferior call的时候，被中断（比如遇到断点或者信号），程序的frame看着依然正常。如果把\textit{dummy frame}从\textit{inferior call}部分中去掉，没有任何实际影响，只是在有些情况下，程序的stack backtrace 可能有些奇怪或者难以理解。
+
+\section{signal trampoline frame}

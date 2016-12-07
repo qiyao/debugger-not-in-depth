@@ -1,0 +1,45 @@
+-0.416147
+errno = 0
+STOPPED by 5
+version: 1, map = 0x4b56b8
+l_addr 0x0, l_name 0x4b147b, l_ld 0x80496e0, l_next 0x4b5300, l_prev 0x0, name = 
+l_addr 0x0, l_name 0x8048114, l_ld 0x4b4f18, l_next 0x4b5988, l_prev 0x4b56b8, name = /lib/ld-linux.so.2
+l_addr 0xa9c000, l_name 0x4b147b, l_ld 0xa9c590, l_next 0x0, l_prev 0x4b5300, name = 
+STOPPED by 5
+version: 1, map = 0x4b56b8
+l_addr 0x0, l_name 0x4b147b, l_ld 0x80496e0, l_next 0x4b5988, l_prev 0x0, name = 
+l_addr 0xa9c000, l_name 0x4b147b, l_ld 0xa9c590, l_next 0xb7f2b3d0, l_prev 0x4b56b8, name = 
+l_addr 0x0, l_name 0xb7f2b3c0, l_ld 0x616ed8, l_next 0xb7f2b648, l_prev 0x4b5988, name = /lib/libdl.so.2
+l_addr 0x0, l_name 0xb7f2b638, l_ld 0x5e6d9c, l_next 0x4b5300, l_prev 0xb7f2b3d0, name = /lib/libc.so.6
+l_addr 0x0, l_name 0x8048114, l_ld 0x4b4f18, l_next 0x0, l_prev 0xb7f2b648, name = /lib/ld-linux.so.2
+STOPPED by 5
+version: 1, map = 0x4b56b8
+l_addr 0x0, l_name 0x4b147b, l_ld 0x80496e0, l_next 0x4b5988, l_prev 0x0, name = 
+l_addr 0xa9c000, l_name 0x4b147b, l_ld 0xa9c590, l_next 0xb7f2b3d0, l_prev 0x4b56b8, name = 
+l_addr 0x0, l_name 0xb7f2b3c0, l_ld 0x616ed8, l_next 0xb7f2b648, l_prev 0x4b5988, name = /lib/libdl.so.2
+l_addr 0x0, l_name 0xb7f2b638, l_ld 0x5e6d9c, l_next 0x4b5300, l_prev 0xb7f2b3d0, name = /lib/libc.so.6
+l_addr 0x0, l_name 0x8048114, l_ld 0x4b4f18, l_next 0x0, l_prev 0xb7f2b648, name = /lib/ld-linux.so.2
+STOPPED by 5
+version: 1, map = 0x4b56b8
+l_addr 0x0, l_name 0x4b147b, l_ld 0x80496e0, l_next 0x4b5988, l_prev 0x0, name = 
+l_addr 0xa9c000, l_name 0x4b147b, l_ld 0xa9c590, l_next 0xb7f2b3d0, l_prev 0x4b56b8, name = 
+l_addr 0x0, l_name 0xb7f2b3c0, l_ld 0x616ed8, l_next 0xb7f2b648, l_prev 0x4b5988, name = /lib/libdl.so.2
+l_addr 0x0, l_name 0xb7f2b638, l_ld 0x5e6d9c, l_next 0x4b5300, l_prev 0xb7f2b3d0, name = /lib/libc.so.6
+l_addr 0x0, l_name 0x8048114, l_ld 0x4b4f18, l_next 0x8e1f020, l_prev 0xb7f2b648, name = /lib/ld-linux.so.2
+l_addr 0x0, l_name 0x8e1f008, l_ld 0x610ef8, l_next 0x0, l_prev 0x4b5300, name = /lib/libm.so.6
+STOPPED by 5
+version: 1, map = 0x4b56b8
+l_addr 0x0, l_name 0x4b147b, l_ld 0x80496e0, l_next 0x4b5988, l_prev 0x0, name = 
+l_addr 0xa9c000, l_name 0x4b147b, l_ld 0xa9c590, l_next 0xb7f2b3d0, l_prev 0x4b56b8, name = 
+l_addr 0x0, l_name 0xb7f2b3c0, l_ld 0x616ed8, l_next 0xb7f2b648, l_prev 0x4b5988, name = /lib/libdl.so.2
+l_addr 0x0, l_name 0xb7f2b638, l_ld 0x5e6d9c, l_next 0x4b5300, l_prev 0xb7f2b3d0, name = /lib/libc.so.6
+l_addr 0x0, l_name 0x8048114, l_ld 0x4b4f18, l_next 0x8e1f020, l_prev 0xb7f2b648, name = /lib/ld-linux.so.2
+l_addr 0x0, l_name 0x8e1f008, l_ld 0x610ef8, l_next 0x0, l_prev 0x4b5300, name = /lib/libm.so.6
+STOPPED by 5
+version: 1, map = 0x4b56b8
+l_addr 0x0, l_name 0x4b147b, l_ld 0x80496e0, l_next 0x4b5988, l_prev 0x0, name = 
+l_addr 0xa9c000, l_name 0x4b147b, l_ld 0xa9c590, l_next 0xb7f2b3d0, l_prev 0x4b56b8, name = 
+l_addr 0x0, l_name 0xb7f2b3c0, l_ld 0x616ed8, l_next 0xb7f2b648, l_prev 0x4b5988, name = /lib/libdl.so.2
+l_addr 0x0, l_name 0xb7f2b638, l_ld 0x5e6d9c, l_next 0x4b5300, l_prev 0xb7f2b3d0, name = /lib/libc.so.6
+l_addr 0x0, l_name 0x8048114, l_ld 0x4b4f18, l_next 0x0, l_prev 0xb7f2b648, name = /lib/ld-linux.so.2
+Exit status:0

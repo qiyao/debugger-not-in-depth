@@ -1,0 +1,563 @@
+
+\documentclass[12pt]{book}
+
+
+\usepackage{CJKutf8}
+%\usepackage{CJK}
+\usepackage{CJKulem}
+%\begin{CJK*}{GBK}{song}
+\begin{CJK}{UTF8}{gbsn}
+
+\title{Debugger Not In Depth}
+\author{Yao Qi} 
+\end{CJK}
+
+
+\usepackage{graphicx}
+\usepackage[bookmarks,colorlinks]{hyperref}
+\usepackage{color}
+\usepackage{verbatim}
+\usepackage[bf,small,center,indentafter,pagestyles]{titlesec}
+\usepackage{titletoc}
+\usepackage{lscape}
+
+\usepackage{listings}
+\lstloadlanguages{C}
+
+\usepackage{ifthen}
+\newboolean{ChineseLanguage}
+\setboolean{ChineseLanguage}{false}
+
+\begin{document}
+\setlength{\leftmargin}{60pt}
+\setlength{\rightmargin}{0cm}
+\setlength{\parsep}{0ex}
+\setlength{\itemsep}{0ex}
+\setlength{\itemindent}{0pt}
+\setlength{\listparindent}{22pt}
+\setlength{\topsep}{5pt}
+\setlength{\baselineskip}{1.3\baselineskip}
+
+\titleformat{\chapter}[hang]{\centering\LARGE\bfseries}{\chaptername}{1em}{}
+\renewcommand{\chaptername}{Chapter {\thechapter}}
+\titlespacing{\chapter}{0pt}{*0}{*4}
+\titlelabel{\S\thetitle\quad}
+
+
+\titlecontents{chapter}[0pt]{\vspace{.5\baselineskip}\bfseries}
+{Chapter {\thecontentslabel}\quad}{}
+{\hspace{.5em}\titlerule*[10pt]{$\cdot$}\contentspage}
+
+\titlecontents{section}[2em]{\vspace{.25\baselineskip}}
+{\S\thecontentslabel\quad}{}
+{\hspace{.5em}\titlerule*[10pt]{$\cdot$}\contentspage}
+
+%\sethead{}{}{\small\chaptername\quad\chaptertitle\qquad\thepage}
+
+%\begin{CJK*}{GBK}{song}
+\begin{CJK}{UTF8}{gbsn}
+\maketitle
+
+
+\lstset{
+    basicstyle=\scriptsize,          % print whole listing small
+    showstringspaces=false,
+%    labelstep=1,
+%    commentstyle=\textsl,
+    keywordstyle=\color{green}\bfseries\underbar,     % underlined bold red keywords
+    identifierstyle={},         % nothing happens to other identifiers
+    commentstyle=\mdseries\color{blue}, % white comments
+    stringstyle=\color{red}\ttfamily}      % typewriter type for strings
+%    stringspaces=false}         % no special string spaces
+
+\frontmatter
+\include{preface}
+
+\tableofcontents
+
+\mainmatter
+
+
+\chapter{Introduction}
+\label{chap:introduction}
+The introduction of the history and category of debugger is out of the 
+scope of the book, while this chapter is only focus on,
+\begin{itemize}
+\item What components are involved?
+\item What is a simplest debugger?
+\end{itemize}
+
+\section{Components involved}
+
+\begin{enumerate}
+\item Special interface, that access the state the program. \\
+  In current implementations of UNIX/Linux, cross-process access is highly 
+restricted, from the security's perspective, but OS still provides
+  a special interface for the father process to access its child process. 
+It is called \textbf{ptrace}.  Debugger could not only modify the instructions of program,
+  but also check the signals of the program.
+\item Operating System, that notifies debugger. \\
+  Debugger only does some operations, and then wait these events.  Operating 
+system will notify the debugger when some events happened, 
+  since in UNIX/Linux, father process has the right to know what happens to 
+its child process(just like our real life).
+\end{enumerate}
+
+\section{A simple debugger}
+In a extremely easy condition, debugging is an inter-process communication 
+between father and child process, while father is debugger and child is debuggee.
+Debugger will use all the functionality provided by operating system, system 
+libraries and others, to control the execution and the state of debuggee.
+
+Here is a simple debugger, too simple to name it debugger,
+
+\lstinputlisting[language=C,caption={hellodebugger.c},captionpos={b},label={listing:introduction:hellodebugger},frame=trbl]{introduction/hellodebugger.c}
+\lstinputlisting[language=C,caption={simple-debugger.c},captionpos={b},label={listing:introduction:simple-debugger},frame=trbl]{introduction/simple-debugger.c}
+
+Listing \ref{listing:introduction:simple-debugger} could be separated to three parts, and I think, the general debugger could also be separated in the same way,
+\begin{enumerate}
+\item Fork a child\\
+In order to get the fully control over debuggee, debugger should first 
+\textbf{fork} a new child process, and set up the execution image by \textbf{execl} system call.  
+\textbf{PTRACE\_TRACEME} tells Linux kernel that this new created child process 
+is under \textbf{ptraced}, so the behavior of this process is a little 
+different\footnote{Difference are twofold, one is execution synchronization 
+with father and one is ptrace interface initialization} with other common process.
+
+\item Wait \\
+Debugger calls system call \textbf{wait}, waiting for the events from debuggee
+\footnote{Actually, these events are send by operating system}, such as 
+hit breakpoint, get a signal and etc., sent by operating system.  Most of the time, 
+debugger will be blocked at \textbf{wait()}, until some events happnes.
+
+\item Actions against the current event
+Debugger is noified by operating system by some events, and go on its execution 
+from \textbf{wait}, and could take some actions according to the type and information 
+of the current event.
+Actions taken here and internal logic here varies from different debuggers' implementations.  
+In this simple case, debugger reads the current program counter register value 
+via system call \textbf{ptrace}.
+\end{enumerate}
+
+
+\lstinputlisting[caption={output of simple-debugger},captionpos={b},label={listing:introduction:simple-debugger-output},frame=trbl]{introduction/simple-debugger-output}
+
+The result in Listing \ref{listing:introduction:simple-debugger-output} shows that event 
+\texttt{SIGTRAP}\footnote{run \texttt{kill -l} to check the number of different signal} was sent, 
+and the value of the program counter register when this event happened.
+
+There is one interesting question that everyone, at least me, may ask when he/she gets this result, 
+\texttt{why program counter is this when \textbf{SIGTRAP} happens?}
+My answer to this questions is, why not check what this address is?
+and then I disassembly \textbf{hellodebugger} line by line.  Unfortunately, 
+I could not find this address in its code.  Why?  To be honest, I am confused
+by this for some days, until I read the \textbf{ELF} specification\cite{Manual:ELF}.
+My understanding is that debugger should know when the debuggee start to
+execution its code, otherwise, debugger will miss this control right to debuggee, 
+so what is the starting point of debuggee execution?  Is it at \textbf{main()}?  Absolutely not.
+System loader and C runtime library will do a lot of thing before \textbf{main()}.
+That is to say, debugger starts its monitor even when the execution is still
+in system library, or operating system provide this to debugger.
+Disassembly \textbf{/lib/ld-2.4.so}, and check this address,
+
+\lstinputlisting[caption={},captionpos={b},label={listing:introduction:dis-ld},frame=trbl]{introduction/dis-ld}
+
+This output tells us that Linux kernel will produce an event when the 
+execution of program process reach the entry of child program image,\texttt{\_start}, 
+if \textbf{PTRACE\_TRACEME} is called. 
+From now on, this process is under the control and monitor of debugger, 
+until the death of this process, or debugger give up its monitor on this process.
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  New chapter  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Breakpoint}
+\label{chap:breakpoint}
+Typically, breakpoints are implemented as a special instruction that cause
+a \textbf{trap} to operating system, which then can notifies debugger.  The debugger,
+through a special interface routines provided by operating system, has the
+ability to read and write the text(executable code) space of the debuggee
+process.  Given an address in this text space where a breakpoint needs to be
+set , the debugger can read the current instruction at that location and
+save it for later replacement.  Then, the debugger writes the special
+breakpoint instruction at that location.
+
+
+\section{What breakpoint is?}
+Debuggers only set the breakpoint at the place that programmers are interested in,
+and wait for the event corresponding to this breakpoint.  There are two most 
+confusing or interesting things,
+ 
+\begin{itemize}
+\item What is \textbf{breakpoint} actually?\\
+\textbf{breakpoint} is an special or invalid instruction, closely relative the \textbf{instruction set} of the machine.
+it is \emph{int3} on \textit{x86} while invalid instruction on \textit{PowerPC}, which will cause the execution of the program \textbf{trap} to operating system.
+Debugger writes the special instruction to the program's text space via \textbf{ptrace} to replace the original instruction.
+
+\item How debugger is notified?\\
+When program hits this special instruction, written by debugger some times before, 
+the execution of program \textbf{trap} to operating system,
+and then, operating system would notify the father of this program by means of sending a 
+\texttt{SIGTRAP} signal to father process.  Debugger could catch this event via \textbf{wait()}, 
+and know that program hits a breakpoint.
+\end{itemize}
+
+\section{A hard-coded example}
+Here is a simple example to explain what the \textbf{breakpoint} is.
+Listing \ref{listing:breakpoint:int3} hardwires special instruction \emph{int3} 
+in the form of inline assembly directly.  Of course, there is no program written 
+in this way, but this example could demonstrate how debugger deal with event caused
+by breakpoint hit, without dealing with details on how to \textbf{ptrace} operations
+and symbol resolution.
+
+%\renewcommand\baselinestretch{0.5}\selectfont
+\lstinputlisting[language=C,caption={int3.c},captionpos={b},label={listing:breakpoint:int3},frame=trbl]{breakpoint/int3.c}
+%\par
+\lstinputlisting[language=C,caption={simple-break.c},captionpos={b},label={listing:breakpoint:simple-break},frame=trbl]{breakpoint/simple-break.c}
+\lstinputlisting[frame=trbl,caption={output of simple-break},captionpos={b},label={listing:breakpoint:simple-break-output}]{breakpoint/simple-break-output}
+
+Listing \ref{listing:breakpoint:simple-break-output} shows that event \texttt{SIGTRAP} was sent twice, 
+and the value of the program counter register when these two event happened.  
+We could disassembly program \textbf{int3} to have a look at what these two address are.  The first program counter register value has been discussed in chapter 
+\ref{chap:introduction} for Listing \ref{listing:introduction:simple-debugger-output}, 
+and the second program counter register value is at the address
+\footnote{Execution of assembly \textbf{int3} causes this event, and program counter register contains the NEXT instruction that will be executed.
+The value of program counter register is bigger than the address of \textbf{int3} by 1.} of assembly \textbf{int3}.
+
+\lstinputlisting[frame=trbl,caption={Disassembly the main() function},captionpos={b},label={listing:breakpoint:dis-int3}]{breakpoint/dis-int3}
+
+From the debugger's perspective, \textbf{breakpoint mechanism} is simply that 
+debugger modifies the program's text space to insert some special instruction, 
+and wait for the notification with the help of operating system and hardware processor.
+However, debugger should not change the behaviour of the program execution, 
+so debugger always save the original bytes
+where it plans to set breakpoint, and restore it when necessary.  
+
+When breakpoint hits, the programmers will check the information they are interested in, 
+such as register values, variables, stacks and so forth,
+and then they would like to continue the execution of the program as if 
+the program execution is not interrupted by this breakpoint.  Debugger will do several steps
+as follows to resume the execution of program,
+
+\begin{enumerate}
+\item Restore the byte(s) of original instruction
+\item Decrease program counter register by the length of this special instruction
+\item Single step one instruction
+\item Write the special instruction back to avoid breakpoint lost, 
+since programer does not intend to remove this breakpoint.
+\item Resume the program in a full speed
+\end{enumerate}
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics{breakpoint/break.1}\hfill\includegraphics{breakpoint/break.2}\hfill\includegraphics{breakpoint/break.3}\hfill
+  \includegraphics{breakpoint/break.4}\hfill\includegraphics{breakpoint/break.5}\hfill\includegraphics{breakpoint/break.6}
+  \caption{Set breakpoint and resume execution}
+  \label{fig:break}
+\end{figure}
+
+\section{Breakpoint operations}
+It is hard to imagine that applications developers spin the breakpoint in their source code 
+when they write code, so debugger should has the capability to insert or remove breakpoint on-the-fly.
+From the end users' perspective, they mostly insert breakpoints on function, source code line, 
+or address, and remove them.  Debugger could map function and source line to address, by means of symbol
+resolve, which will be covered in Chapter \ref{chap:symbol}, and then create the bi-relationship between breakpoints and address.
+Debugger will maintain a list of breakpoints of different types, and provide a simple interface of 
+breakpoint operations for other components of debugger\footnote{for example, shared object sub-system is dependent on breakpoint mechanism to detect the event of loading and unloading a shared library.}
+
+As mentioned above, breakpoint operations are indeed the access to child's memory space and registers via \textbf{ptrace} system call, so breakpoint operations are actually a series of \textbf{ptrace} system calls, with different options.
+
+Source code in Listing \ref{listing:breakpoint:break-ops} shows three operations about breakpoint, \texttt{setup\_breakpoint}, \texttt{restore\_breakpoint} and
+\texttt{hit\_breakpoint}.  In \texttt{main()} function, father process sets a breakpoint on \texttt{0x004a93c9}, which is the address of symbol 
+\texttt{\_dl\_debug\_state}\footnote{The address of this symbol varies from distros and hardware platform.  Reader could check the address of this symbol on your
+distro when you want to run it program.  I hardwire this address in order to avoid too much details on symbol and ELF, which are covered in Chapter \ref{chap:symbol} 
+and Chapter \ref{chap:elf}} in \texttt{ld-2.4.so}.
+
+\lstinputlisting[language=C,caption={break-ops.c},captionpos={b},label={listing:breakpoint:break-ops},frame=trbl]{breakpoint/break-ops.c}
+
+From the source code, we could find that breakpoint operations are highly relative to \textbf{ptrace} operations, and it is not difficult as you imagine when you are familiar with \textbf{ptrace}.  From the output, we could find that breakpoint on \texttt{\_dl\_debug\_state} is hit for sometimes.
+\lstinputlisting[caption={output of break-ops},captionpos={b},label={listing:breakpoint:break-ops-output},frame=trbl]{breakpoint/break-ops-output}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  ELF  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{ELF}
+\label{chap:elf}
+
+\include{dwarf}
+
+\section{阅读理解DWARF标准}
+\section{GDB中对dwarf的处理}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Frame  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\chapter{Frame}
+%\label{chap:frame}
+\include{frame}
+
+ 
+\chapter{Symbol}
+\label{chap:symbol}
+Application developers do not know which line in a source code they want to set breakpoints when
+they write the source, and debugger could set or remove breakpoints on-the-fly.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Shared Object  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Shared Object}
+\label{chap:sharedobject}
+From the chapter \ref{chap:introduction}, we know that debugger should monitor all the 
+actions or events that may change the state of program.
+Loading and unloading a shared object at run-time is one of these events.
+Shared object also obeys the ELF specification \cite{Manual:ELF}(Actually, shared object
+is one of three format in ELF specification), and the
+static feature and file format could discussed in Chapter \ref{chap:elf}.  
+In this chapter, we only think about how does debugger know when a
+shared object is loaded or unloaded at runtime.
+
+It is one of the most attractive features of UNIX SVR4 that shared object could be loaded and unloaded at run-time dynamically.  This feature reduces the size
+of code, and increases the independence between applications and libraries, but it makes troubles for the debuggers.  Debuggers could not only
+cover all the data and code of the debuggee, but also should pay attention on the new code and data in shared obect may be loaded during the execution of this program.
+Debugger should know,
+\begin{itemize}
+\item When is a shared object loaded? or how a debugger is notified when a shared object is loaded?
+\item How a debugger get the information about shared object loaded in the current process? What is loaded?
+\end{itemize}
+
+The problem is system runtime libraries and dynamic linker, which are responsible for loading and unloading shared objects at runtime, do not know how to notify debuggers,
+in other words, system libraries and dynamic linker do not know the existence of debuggers\footnote{One of the UNIX philosophy is that do one thing and do one thing well.  
+Some additional work are needed for the co-work between different components.}.  They could not help debuggers on this issue, and debuggers
+have to do something by themselves to \texttt{force} system runtime libraries and dynamic linker to notify these event that debuggers want.  
+Since all the shared object are loaded and unloaded by dynamic linker, \texttt{/lib/ld-2.4.so} on \textbf{Linux}, debugger
+could know these operatoins and information if it monitors some key points or probe points in dynamic linker.
+In the current implementations of \textbf{GDB}, some breakpoints are set on some key points in dynamic linker.
+When dynamic linker begins to load a library, it will hit a breakpoint \texttt{pre-set} by \textbf{GDB}, 
+and \textbf{GDB} could receive this event, and it could know when a library is being loaded and unloaded, and what is being loaded and unloaded.
+
+At the same time, dynamic linker exposes some public interfaces or \textbf{probe points} for debuggers to set breakpoints on, in order to increase the debuggability 
+of dynamic linker when deal with shared object actions or events.  If dynamic linker does not expose an interface explicitly, debugger writers have to set breakpoint 
+according to their own
+understanding, and break the consistence of system library and dynamic linker.  In the current implementation of \textbf{GNU C Library}, it exposes
+a symbol \texttt{\_dl\_debug\_state} explicitly for debugger to set breakpoint on, and make sure that the breakpoint on this function is hit, 
+when the system runtime library is at a consistent state.  Due to the efforts made at the two sides, system library expose a symbol for debugger, and make sure that
+it is in a consistent state when debuggee's execution reaches to this point, while debugger set breakpoint on the address of this symbol, 
+and collect information when execution hits this breakpoint.
+
+Setting a breakpoint at \texttt{\_dl\_debug\_state} in dynamic linker could only enable the debuggers could notified when a library is loaded and unloaded,
+but debuggers should make additional negotiation with dynamic linker and system runtime library that system library should maintain a list of libraries that
+has been loaded and export interface for debuggers to access this list, if debuggers want to know what libraries are being loaded.
+
+Listing \ref{listing:sharedobject:test-dl} is a simple program that call \texttt{dlopen} to open a shared library dynamically, and our sample program
+in Listing \ref{listing:sharedobject:break-loader} could detect all the events about library load and unload.
+
+\lstinputlisting[language=C,caption={test-dl.c},captionpos={b},label={listing:sharedobject:test-dl},frame=trbl]{sharedlibrary/test-dl.c}
+\lstinputlisting[language=C,caption={link-map.c},captionpos={b},label={listing:sharedobject:link-map},frame=trbl]{sharedlibrary/link-map.h}
+\lstinputlisting[language=C,caption={break-loader.c},captionpos={b},label={listing:sharedobject:break-loader},frame=trbl]{sharedlibrary/break-loader.c}
+
+Listing \ref{listing:sharedobject:break-loader-output} shows the output when we run \texttt{break-loader},
+\begin{landscape}
+\lstinputlisting[caption={output of break-loader},captionpos={b},label={listing:sharedobject:break-loader-output},frame=trbl]{sharedlibrary/break-loader-output}
+\end{landscape}
+
+Although Listing \ref{listing:sharedobject:break-loader-output} looks a little in mess, at least my feeling is, when I got it for the first time, we still get 
+some interesting information from the debugger's perspective or system developer's perspective,
+\begin{itemize}
+\item Relocation information.
+There are three elements in every records, \texttt{l\_addr}, \texttt{l\_ld}, and \texttt{l\_name}.  We could get the meaning of \texttt{l\_addr} and \texttt{l\_ld}
+from the comments to them in Listing \ref{listing:sharedobject:link-map}.  \texttt{l\_addr}, which is set by runtime library, could tell debugger where this
+library is loaded at, and debugger could adjust the address of every symbol that is relocated.
+\item Optimizations to DSO.
+It is confusing that \texttt{l\_addr} is $0$ in some records, and that is what this item addresses.  Since \textsf{GNU C Library 2.3}, some optimizations are
+introduced into it, and \textbf{pre-linking}\cite{Manual:glibc2.3} is one of them.  If \textbf{pre-linking} optimization is applied to this library or shared
+object, and \textbf{prelink} could find a suitable load address for this library, \texttt{l\_addr} will be $0$, and this library is loaded at that fixed address
+set by \textbf{prelink}, in order to speed up library loading. 
+\end{itemize}
+
+We have discussed about how debugger check the shared object loaded in this process's space.  Actually, after checking the list of link map in \textbf{glibc},
+there are still a lot of things to be done by debugger, such as relocation and symbol resolve, but these topics are out of the scope of this chapter, and
+will be discussed in chapter \ref{chap:symbol} partially. 
+
+\subsection{Shared library and Breakpoint}
+Shared library is nearly identical to other \emph{ELF} object files, except its special features on loading, symbol
+resolution, and others.(My point is other special features are affected by its loading feature, so we could pay attention
+on the root cause, \emph{dynamic load}).  From a debugger's perspective, the difference between shared library and other \emph{ELF}
+object file is debugger do not know when the shared library is loaded by \emph{dynamic linker}, so debugger should monitor
+every operation of \emph{dynamic linker}, so that record and maintain the information of shared library loaded in debuggee's space.
+\emph{GDB} monitors every operation of \emph{dynamic linker} by means of setting \emph{breakpoints} in some functions in \emph{dynamic linker}.
+
+
+When \emph{GDB} starts up, it will load \emph{/lib/ld-linux.so.2}\footnote{I do not know why gdb does this}.  I set a breakpoint on 
+\emph{solib\_open} in \texttt{gdb/solib.c}, and get the result like this,
+
+\begin{verbatim}
+Breakpoint 4, solib_open (in_pathname=0xbfebda00 "/lib/ld-linux.so.2", found_pathname=0xbfebda58) at ../../src/gdb/solib.c:145
+145       struct target_so_ops *ops = solib_ops (current_gdbarch);
+(top-gdb) bt
+#0  solib_open (in_pathname=0xbfebda00 "/lib/ld-linux.so.2", found_pathname=0xbfebda58) at ../../src/gdb/solib.c:145
+#1  0x080915b6 in enable_break () at ../../src/gdb/solib-svr4.c:982
+\end{verbatim}
+
+Here is a important data structure relative to shared library,(imo, it is the interface to solib)
+\begin{verbatim}
+struct target_so_ops {
+    void (*relocate_section_addresses)(struct so_list *, struct section_table *);
+    void (*free_so)(struct so_list *);
+    void (*clear_solib)(void);
+    void (*solib_create_inferior_hook)(void);
+    void (*special_symbol_handling)(void);
+    struct so_list *(*current_sos)(void);
+    int (*open_symbol_file_object)(void *);
+    int (*in_dynsym_resolve_code)(CORE_ADDR);
+    int (*find_and_open_solib)(char *, unsigned int, char **);
+} *
+(top-gdb) p ops[0]
+$5 = {
+relocate_section_addresses = 0x80914c0 <svr4_relocate_section_addresses>, 
+free_so = 0x8090990 <svr4_free_so>, 
+clear_solib = 0x8090730 <svr4_clear_solib>, 
+solib_create_inferior_hook = 0x8091960 <svr4_solib_create_inferior_hook>, 
+special_symbol_handling = 0x8090720 <svr4_special_symbol_handling>, 
+current_sos = 0x8090ff0 <svr4_current_sos>,
+open_symbol_file_object = 0x8090cf0 <open_symbol_file_object>, 
+in_dynsym_resolve_code = 0x8090940 <svr4_in_dynsym_resolve_code>, 
+find_and_open_solib = 0}
+
+\end{verbatim}
+
+In \texttt{gdb/solib-svr4.c}\footnote{\emph{svr4} stands for \emph{System V Release 4}.  It was the most successful version of \emph{UNIX}.}, 
+we could find a list of symbols in the dynamic linker.
+\begin{verbatim}
+static char *solib_break_names[] =
+{
+  "r_debug_state",
+  "_r_debug_state",
+  "_dl_debug_state",
+  "rtld_db_dlactivity",
+  "_rtld_debug_state",
+
+  /* On the 64-bit PowerPC, the linker symbol with the same name as
+     the C function points to a function descriptor, not to the entry
+     point.  The linker symbol whose name is the C function name
+     prefixed with a '.' points to the function's entry point.  So
+     when we look through this table, we ignore symbols that point
+     into the data section (thus skipping the descriptor's symbol),
+     and eventually try this one, giving us the real entry point
+     address.  */
+  "._dl_debug_state",
+
+  NULL
+};
+\end{verbatim}
+
+On \emph{Linux}, we could find this symbol \emph{\_dl\_debug\_state}
+in \emph{/lib/ld-2.4.so},
+\begin{verbatim}
+[qiyao@GreenOnly:~]$ readelf -s /lib/ld-2.4.so  | grep _dl_debug_state
+    22: 004a93c9     5 FUNC    GLOBAL DEFAULT    9 _dl_debug_state@@GLIBC_PRIVATE
+   410: 004a93c9     5 FUNC    LOCAL  HIDDEN    9 __GI__dl_debug_state
+   451: 004a93c9     5 FUNC    GLOBAL DEFAULT    9 _dl_debug_state
+\end{verbatim}
+
+\emph{\_dl\_debug\_state} is defined in \emph{glibc/elf/dl-debug.c}, and the comments
+to this function are useful to understand it.  \texttt{This function exists solely to have a 
+breakpoint set on it by the debugger.  The debugger is supposed to find this function's 
+address by examining the \emph{r\_brk} member of \emph{struct r\_debug}, but GDB 4.15 in fact looks
+for this particular symbol name in the \emph{PT\_INTERP} file.}
+
+
+Now, we could know that debugger set breakpoint on \emph{\_dl\_debug\_state} to monitor the operations
+of \emph{dynamic linker}, and in the following part, we will investigation what does debugger do, when
+the program hit this breakpoint.
+
+
+This part of code may could tell us how debugger deal with shared library(\emph{libpthread.so.o} here)
+\begin{verbatim}
+Breakpoint 4, solib_open (in_pathname=0xa135548 "/lib/libpthread.so.0", found_pathname=0xbfebd7a8) at ../../src/gdb/solib.c:145
+145       struct target_so_ops *ops = solib_ops (current_gdbarch);
+(top-gdb) bt
+#0  solib_open (in_pathname=0xa135548 "/lib/libpthread.so.0", found_pathname=0xbfebd7a8) at ../../src/gdb/solib.c:145
+#1  0x08090540 in solib_map_sections (arg=0xa1a3828) at ../../src/gdb/solib.c:272
+#2  0x081179d3 in catch_errors (func=0x8090500 <solib_map_sections>, func_args=0xa1a3828, errstring=0x823d478 "Error while mapping shared library sections:\n", mask=6)
+    at ../../src/gdb/exceptions.c:515
+#3  0x0808fdfc in update_solib_list (from_tty=0, target=0x82da3c0) at ../../src/gdb/solib.c:582
+#4  0x080900d8 in solib_add (pattern=0x0, from_tty=0, target=0x82da3c0, readsyms=1) at ../../src/gdb/solib.c:643
+#5  0x0810e235 in handle_inferior_event (ecs=0xbfebd9cc) at ../../src/gdb/infrun.c:2178
+\end{verbatim}
+
+\begin{verbatim}
+Breakpoint 5, svr4_fetch_link_map_offsets () at ../../src/gdb/solib-svr4.c:1421
+1421      struct solib_svr4_ops *ops = gdbarch_data (current_gdbarch, solib_svr4_data);
+(top-gdb) bt
+#0  svr4_fetch_link_map_offsets () at ../../src/gdb/solib-svr4.c:1421
+During symbol reading, Incomplete CFI data; unspecified register eax at 0x08090a23.
+#1  0x08090ccb in solib_svr4_r_map () at ../../src/gdb/solib-svr4.c:555
+#2  0x08091012 in svr4_current_sos () at ../../src/gdb/solib-svr4.c:697
+#3  0x0808fd2e in update_solib_list (from_tty=0, target=0x82da3c0) at ../../src/gdb/solib.c:470
+#4  0x080900d8 in solib_add (pattern=0x0, from_tty=0, target=0x82da3c0, readsyms=1) at ../../src/gdb/solib.c:643
+#5  0x0810e235 in handle_inferior_event (ecs=0xbfa55d6c) at ../../src/gdb/infrun.c:2178
+\end{verbatim}
+That is to say, \emph{svr4\_fetch\_link\_map\_offsets} actually call \emph{svr4\_ilp32\_fetch\_link\_map\_offsets}
+
+
+In \emph{solib\_svr4\_r\_map()}, we could go on to analyze this code,
+\begin{verbatim}
+static CORE_ADDR
+solib_svr4_r_map (void)
+  {
+     struct link_map_offsets *lmo = svr4_fetch_link_map_offsets ();
+     return read_memory_typed_address (debug_base + lmo->r_map_offset,
+                                         builtin_type_void_data_ptr);
+  }
+\end{verbatim}
+\emph{debug\_base} is \emph{\_r\_debug} in \emph{ld-2.4.so}
+\begin{verbatim}
+(top-gdb) p/x debug_base
+$2 = 0x4b56a4
+\end{verbatim}
+\begin{verbatim}
+[qiyao@GreenOnly:]$ readelf -s /lib/ld-2.4.so | grep 4b56a4
+    35: 004b56a4    20 OBJECT  GLOBAL DEFAULT   19 _r_debug@@GLIBC_2.0
+   464: 004b56a4    20 OBJECT  GLOBAL DEFAULT   19 _r_debug
+\end{verbatim}
+
+And the return value of \emph{solib\_svr4\_r\_map} is the address of the first entry,
+\begin{verbatim}
+(top-gdb) p/x lm
+$3 = 0x4b56b8
+\end{verbatim}
+\begin{verbatim}
+[qiyao@GreenOnly:]$ readelf -s /lib/ld-2.4.so | grep 4b56b8
+   406: 004b56b8     0 NOTYPE  LOCAL  DEFAULT  ABS _end
+\end{verbatim}
+
+\begin{figure}[htb]
+\centering
+
+\includegraphics[width=12cm]{figure.1}
+\caption{Data Structures about Shared Object Debuggin in GDB}
+\label{sods}
+\end{figure}
+
+\emph{ps\_get\_thread\_area} should be defined by debugger, otherwise, an error, \emph{NO CAPABILITY}, will return.
+In \emph{glibc/nptl\_db/td\_ta\_map\_lwp2thr.c}, we could see that,
+\begin{verbatim}
+142 # pragma weak ps_get_thread_area
+
+153      case ta_howto_reg_thread_area:
+154       if (&ps_get_thread_area == NULL)
+155         return TD_NOCAPAB;
+\end{verbatim}
+If \emph{ps\_get\_thread\_area} is not defined in host, return an error.
+
+\include{thread}
+
+\include{other}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\renewcommand{\bibname}{Reference}
+\bibliography{reference}
+\bibliographystyle{plain}
+\addcontentsline{toc}{chapter}{Reference}
+
+\end{CJK}
+\end{document} 
