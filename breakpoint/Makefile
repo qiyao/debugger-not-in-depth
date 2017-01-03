@@ -1,7 +1,9 @@
 %.o: %.c
 	gcc -g3 -c $< -o $@
 
-all: simple-break-output break-ops-output break dis-int3
+#all: simple-break-output break-ops-output break dis-int3
+
+all: break
 
 dis-int3: int3
 	objdump -d int3 | grep "<main>" -A 8 > dis-int3

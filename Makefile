@@ -1,6 +1,6 @@
 FILES = Debugger_Not_In_Depth.tex preface.tex frame.tex
 
-SUBDIRS= frame
+SUBDIRS= breakpoint frame
 
 all: Debugger_Not_In_Depth.pdf
 
