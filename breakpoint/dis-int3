@@ -1,0 +1,9 @@
+080483cb <main>:
+ 80483cb:	55                   	push   %ebp
+ 80483cc:	89 e5                	mov    %esp,%ebp
+ 80483ce:	cc                   	int3   
+ 80483cf:	b8 00 00 00 00       	mov    $0x0,%eax
+ 80483d4:	5d                   	pop    %ebp
+ 80483d5:	c3                   	ret    
+ 80483d6:	66 90                	xchg   %ax,%ax
+ 80483d8:	66 90                	xchg   %ax,%ax

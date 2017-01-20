@@ -4,7 +4,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <errno.h>
-
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 union instr {long l; unsigned char c[sizeof(long)/sizeof(char)];}u;
 
@@ -138,22 +140,28 @@ main()
   child = fork();
   if(child == 0)
     {
+      int fd;
+
       ptrace(PTRACE_TRACEME, 0, NULL, NULL);
-      execl("/bin/ls", NULL);
+      fd = open("/dev/null", O_WRONLY);
+      dup2(fd, 1);
+      execl("/bin/ls", "ls", NULL);
     }
   else
     {
       int status;
       long pc;
       struct breakpoint b;
+      int i;
 
       wait(NULL);
 
       /* Set breakpoint on _dl_debug_state in ld-2.4.so.  */
-      setup_breakpoint (child, 0x004a93c9, &b);
+      setup_breakpoint (child, 0xb7fee050, &b);
       ptrace(PTRACE_CONT,child, NULL, NULL);
 
-      while (1)
+      i = 0;
+      while (i++ < 20)
         {
           /* Wait until child stop.  */
           wait(&status);
